@@ -1,0 +1,23 @@
+{
+  "realm": "euranix",
+  "enabled": true,
+  "clients": [
+    { "clientId": "portal-ui", "enabled": true, "redirectUris": ["http://localhost:3000/*"] },
+    { "clientId": "custom-app", "enabled": true, "serviceAccountsEnabled": true }
+  ],
+  "roles": { "realm": [{ "name": "admin" }, { "name": "user" }] },
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "admin123", "temporary": false }],
+      "realmRoles": ["admin"]
+    },
+    {
+      "username": "user",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "user123", "temporary": false }],
+      "realmRoles": ["user"]
+    }
+  ]
+}
