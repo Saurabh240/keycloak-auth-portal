@@ -28,7 +28,7 @@ public class AdminUserController {
     ) {
         this.keycloak = KeycloakBuilder.builder()
                 .serverUrl(serverUrl)
-                .realm("master")
+                .realm(realm)
                 .clientId(clientId)
                 .clientSecret(clientSecret)
                 .grantType("client_credentials")

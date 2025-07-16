@@ -14,23 +14,27 @@ const keycloak = new Keycloak({
 function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [roles, setRoles] = useState([]);
+  const [token, setToken] = useState('');
 
   useEffect(() => {
     keycloak.init({ onLoad: 'login-required' }).then(auth => {
-      setAuthenticated(auth);
-      setRoles(keycloak.tokenParsed?.realm_access?.roles || []);
+      if (auth) {
+        setAuthenticated(true);
+        setRoles(keycloak.tokenParsed?.realm_access?.roles || []);
+        setToken(keycloak.token);
+      }
     });
   }, []);
 
   if (!authenticated) return <div>Loading...</div>;
 
-  const hasAdminRole = roles.includes('admin');
+  const hasAdminRole = roles.some(role => role.includes('admin'));
 
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<AppList keycloak={keycloak} />} />
-        <Route path="/admin" element={hasAdminRole ? <AdminPage keycloak={keycloak} /> : <Navigate to="/" />} />
+        <Route path="/" element={<AppList keycloak={keycloak} roles={roles} />} />
+        <Route path="/admin" element={hasAdminRole ? <AdminPage keycloak={keycloak} token={token} /> : <Navigate to="/" />} />
       </Routes>
     </Router>
   );
