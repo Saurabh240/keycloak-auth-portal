@@ -1,11 +1,17 @@
 package com.user.management.controller;
 
 import com.user.management.model.UserDto;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.core.Response;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.admin.client.resource.RealmResource;
+import org.keycloak.admin.client.resource.RoleMappingResource;
+import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
+import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.CredentialRepresentation;
+import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -19,6 +25,7 @@ public class AdminUserController {
 
     private final Keycloak keycloak;
     private final String realm;
+    private static final List<String> APP_CLIENT_IDS = List.of("frappe-app", "custom-app");
 
     public AdminUserController(
             @Value("${keycloak.auth-server-url}") String serverUrl,
@@ -51,13 +58,25 @@ public class AdminUserController {
         user.setEmail(userDto.getEmail());
         user.setEnabled(true);
 
-        CredentialRepresentation credential = new CredentialRepresentation();
-        credential.setType(CredentialRepresentation.PASSWORD);
-        credential.setValue(userDto.getPassword());
-        credential.setTemporary(false);
-        user.setCredentials(Collections.singletonList(credential));
+        if (userDto.getPassword() != null) {
+            CredentialRepresentation credential = new CredentialRepresentation();
+            credential.setType(CredentialRepresentation.PASSWORD);
+            credential.setValue(userDto.getPassword());
+            credential.setTemporary(false);
+            user.setCredentials(Collections.singletonList(credential));
+        }
 
-        keycloak.realm(realm).users().create(user);
+        Response response = keycloak.realm(realm).users().create(user);
+
+        if (response.getStatus() == 201 && userDto.getRoles() != null && !userDto.getRoles().isEmpty()) {
+            String userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
+            RoleMappingResource roleMapping = keycloak.realm(realm).users().get(userId).roles();
+            for (String roleName : userDto.getRoles()) {
+                RoleRepresentation role = keycloak.realm(realm).roles().get(roleName).toRepresentation();
+                roleMapping.realmLevel().add(Collections.singletonList(role));
+            }
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -69,10 +88,69 @@ public class AdminUserController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Void> updateUser(@PathVariable String id, @RequestBody UserDto userDto) {
-        UserRepresentation user = keycloak.realm(realm).users().get(id).toRepresentation();
+        UserResource userResource = keycloak.realm(realm).users().get(id);
+        UserRepresentation user = userResource.toRepresentation();
         user.setEmail(userDto.getEmail());
         user.setUsername(userDto.getUsername());
-        keycloak.realm(realm).users().get(id).update(user);
+        userResource.update(user);
+
+        if (userDto.getRoles() != null) {
+            RoleMappingResource roleMapping = userResource.roles();
+            roleMapping.realmLevel().remove(roleMapping.realmLevel().listAll());
+            for (String roleName : userDto.getRoles()) {
+                RoleRepresentation role = keycloak.realm(realm).roles().get(roleName).toRepresentation();
+                roleMapping.realmLevel().add(Collections.singletonList(role));
+            }
+        }
+
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{username}/details")
+    public ResponseEntity<?> getUserWithRolesByUsername(@PathVariable String username) {
+        try {
+            RealmResource realmResource = keycloak.realm(realm);
+            List<UserRepresentation> foundUsers = realmResource.users().search(username);
+            if (foundUsers.isEmpty()) return ResponseEntity.notFound().build();
+
+            UserRepresentation user = foundUsers.get(0);
+            String userId = user.getId();
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("user", user);
+
+            // Realm roles
+            List<RoleRepresentation> realmRoles = realmResource.users().get(userId)
+                    .roles()
+                    .realmLevel()
+                    .listAll();
+            result.put("realmRoles", realmRoles.stream().map(RoleRepresentation::getName).toList());
+
+            // Client roles
+            Map<String, List<String>> clientRolesMap = new HashMap<>();
+
+            for (String clientAlias : APP_CLIENT_IDS) {
+                List<ClientRepresentation> clients = realmResource.clients().findByClientId(clientAlias);
+                if (!clients.isEmpty()) {
+                    String clientUuid = clients.get(0).getId();
+
+                    List<RoleRepresentation> clientRoles = realmResource.users().get(userId)
+                            .roles()
+                            .clientLevel(clientUuid)
+                            .listAll();
+
+                    if (!clientRoles.isEmpty()) {
+                        clientRolesMap.put(clientAlias, clientRoles.stream().map(RoleRepresentation::getName).toList());
+                    }
+                }
+            }
+
+            result.put("clientRoles", clientRolesMap);
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
     }
 }
