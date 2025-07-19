@@ -4,13 +4,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -37,13 +37,23 @@ public class SecurityConfig {
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-            List<String> realmRoles = Optional.ofNullable(jwt.getClaimAsMap("realm_access"))
-                    .map(realmAccess -> (List<String>) realmAccess.get("roles"))
-                    .orElse(Collections.emptyList());
+            Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
+            if (resourceAccess == null) {
+                return Collections.emptyList();
+            }
 
-            return realmRoles.stream()
-                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-                    .collect(Collectors.toList());
+            List<GrantedAuthority> authorities = new ArrayList<>();
+            resourceAccess.forEach((client, access) -> {
+                Map<String, Object> accessMap = (Map<String, Object>) access;
+                List<String> roles = (List<String>) accessMap.get("roles");
+                if (roles != null) {
+                    roles.forEach(role ->
+                            authorities.add(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                    );
+                }
+            });
+
+            return authorities;
         });
         return converter;
     }
