@@ -34,5 +34,5 @@ jobs:
 
       - name: Build and push frontend image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/keycloak-frontend:latest -f react-ui/Dockerfile frontend
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/keycloak-frontend:latest -f react-ui/Dockerfile react-ui
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/keycloak-frontend:latest
