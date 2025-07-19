@@ -5,9 +5,9 @@ services:
     image: postgres:15
     container_name: keycloak-db
     environment:
-      POSTGRES_DB: keycloak
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: keycloak
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - keycloak_data:/var/lib/postgresql/data
     ports:
@@ -26,24 +26,26 @@ services:
       - keycloak-db
 
 #  react-ui:
-#    image: node:18-alpine
-#    command: sh -c "npm install && npm start"
-#    working_dir: /app
-#    volumes:
-#      - ./react-ui:/app
+#    image: saurabh896/keycloak-frontend:latest
+#    container_name: keycloak-frontend
 #    ports:
-#      - "3000:3000"
+#      - "${REACT_PORT}:80"
 #    environment:
-#      REACT_APP_KEYCLOAK_URL: http://localhost:8080kkkkkkkkkkkkkkk
+#      REACT_APP_KEYCLOAK_URL: http://keycloak:8080
 #    depends_on:
 #      - keycloak
-#
+
   spring-api:
+    image: saurabh896/keycloak-backend:latest
+    container_name: keycloak-backend
     build:
       context: ./spring-api
     ports:
-      - "8081:8081"
+      - "${SPRING_PORT}:8081"
     environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://keycloak-db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       KEYCLOAK_URL: http://keycloak:8080
     depends_on:
       - keycloak

@@ -27,8 +27,8 @@ public class AdminUserController {
     private final Keycloak keycloak;
     private final String realm;
     private static final Map<String, AppMetadata> APP_METADATA = Map.of(
-            "custom-app", new AppMetadata("Custom Application", "https://custom-app.example.com"),
-            "frappe-app", new AppMetadata("Frappe ERP", "https://frappe.example.com")
+            "client1-app1", new AppMetadata("Frontend Application", "https://custom-app.example.com"),
+            "client1-app2", new AppMetadata("Frappe Application", "https://frappe.example.com")
     );
 
     public AdminUserController(
