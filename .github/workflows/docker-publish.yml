@@ -24,7 +24,7 @@ jobs:
 
       - name: Build backend JAR
         run: |
-          cd backend
+          cd spring-api
           mvn clean package -DskipTests
 
       - name: Build and push backend image
