@@ -14,7 +14,7 @@ services:
       - "5432:5432"
 
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0.3
+    image: quay.io/keycloak/keycloak:26.0.0
     container_name: keycloak
     command: start-dev --db postgres --db-url-host keycloak-db --db-username keycloak --db-password keycloak
     environment:
@@ -25,25 +25,22 @@ services:
     depends_on:
       - keycloak-db
 
-  react-ui:
-    image: node:18-alpine
-    command: sh -c "npm install && npm start"
-    working_dir: /app
-    volumes:
-      - ./react-ui:/app
-    ports:
-      - "3000:3000"
-    environment:
-      REACT_APP_KEYCLOAK_URL: http://localhost:8080
-    depends_on:
-      - keycloak
-
+#  react-ui:
+#    image: node:18-alpine
+#    command: sh -c "npm install && npm start"
+#    working_dir: /app
+#    volumes:
+#      - ./react-ui:/app
+#    ports:
+#      - "3000:3000"
+#    environment:
+#      REACT_APP_KEYCLOAK_URL: http://localhost:8080kkkkkkkkkkkkkkk
+#    depends_on:
+#      - keycloak
+#
   spring-api:
-    image: openjdk:17-jdk-slim
-    command: sh -c "java -jar /app/spring-api.jar"
-    working_dir: /app
-    volumes:
-      - ./spring-api:/app
+    build:
+      context: ./spring-api
     ports:
       - "8081:8081"
     environment:
