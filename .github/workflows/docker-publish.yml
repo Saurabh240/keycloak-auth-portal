@@ -1,0 +1,38 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches: 
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build backend JAR
+        run: |
+          cd spring-api
+          mvn clean package -DskipTests
+
+      - name: Build and push backend image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/keycloak-backend:latest ./spring-api
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/keycloak-backend:latest
+
+      - name: Build and push frontend image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/keycloak-frontend:latest -f react-ui/Dockerfile react-ui
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/keycloak-frontend:latest

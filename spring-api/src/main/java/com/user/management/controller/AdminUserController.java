@@ -1,5 +1,6 @@
 package com.user.management.controller;
 
+import com.user.management.model.AppMetadata;
 import com.user.management.model.UserDto;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
@@ -25,7 +26,10 @@ public class AdminUserController {
 
     private final Keycloak keycloak;
     private final String realm;
-    private static final List<String> APP_CLIENT_IDS = List.of("frappe-app", "custom-app");
+    private static final Map<String, AppMetadata> APP_METADATA = Map.of(
+            "client1-app1", new AppMetadata("Frontend Application", "https://custom-app.example.com"),
+            "client1-app2", new AppMetadata("Frappe Application", "https://frappe.example.com")
+    );
 
     public AdminUserController(
             @Value("${keycloak.auth-server-url}") String serverUrl,
@@ -129,7 +133,7 @@ public class AdminUserController {
             // Client roles
             Map<String, List<String>> clientRolesMap = new HashMap<>();
 
-            for (String clientAlias : APP_CLIENT_IDS) {
+            for (String clientAlias : APP_METADATA.keySet()) {
                 List<ClientRepresentation> clients = realmResource.clients().findByClientId(clientAlias);
                 if (!clients.isEmpty()) {
                     String clientUuid = clients.get(0).getId();
@@ -153,4 +157,52 @@ public class AdminUserController {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
     }
+
+    @GetMapping("/{id}/apps")
+    public ResponseEntity<Map<String, Object>> getUserApps(@PathVariable String id) {
+        RealmResource realmResource = keycloak.realm(realm);
+        UserRepresentation user = realmResource.users().get(id).toRepresentation();
+
+        // Collect realm roles
+        List<String> realmRoles = realmResource.users().get(id).roles().realmLevel().listAll().stream()
+                .map(RoleRepresentation::getName)
+                .toList();
+
+        // Collect client roles for configured apps
+        Map<String, Object> result = new HashMap<>();
+        result.put("user", user);
+        result.put("realmRoles", realmRoles);
+
+        List<Map<String, Object>> apps = new ArrayList<>();
+
+        for (String clientAlias : APP_METADATA.keySet()) {
+            List<ClientRepresentation> clients = realmResource.clients().findByClientId(clientAlias);
+            if (!clients.isEmpty()) {
+                String clientUuid = clients.get(0).getId();
+
+                List<RoleRepresentation> clientRoles = realmResource.users().get(id)
+                        .roles()
+                        .clientLevel(clientUuid)
+                        .listAll();
+
+                List<String> roleNames = clientRoles.stream().map(RoleRepresentation::getName).toList();
+
+                if (!roleNames.isEmpty()) {
+                    Map<String, Object> app = new HashMap<>();
+                    AppMetadata meta = APP_METADATA.get(clientAlias);
+
+                    app.put("clientId", clientAlias);
+                    app.put("name", meta.name());
+                    app.put("url", meta.url());
+                    app.put("roles", roleNames);
+
+                    apps.add(app);
+                }
+            }
+        }
+
+        result.put("apps", apps);
+        return ResponseEntity.ok(result);
+    }
+
 }
