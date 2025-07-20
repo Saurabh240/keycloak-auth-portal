@@ -4,9 +4,10 @@ import Keycloak from 'keycloak-js';
 import { useEffect, useState } from 'react';
 import AppList from './AppList';
 import AdminPage from './AdminPage';
+import Login from './LoginPage';
 
 const keycloak = new Keycloak({
-  url: 'http://localhost:8080/auth',
+  url: 'http://localhost:8080/realms/euranix/account',
   realm: 'euranix',
   clientId: 'portal-ui',
 });
@@ -33,7 +34,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<AppList keycloak={keycloak} roles={roles} />} />
+        <Route path="/" element={<Login />} />
         <Route path="/admin" element={hasAdminRole ? <AdminPage keycloak={keycloak} token={token} /> : <Navigate to="/" />} />
       </Routes>
     </Router>
