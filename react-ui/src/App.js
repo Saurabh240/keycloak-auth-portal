@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import keycloak from './keycloak';
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -48,7 +48,7 @@ function App() {
 
 function FetchAppsButton({ token, userId }) {
   const fetchApps = () => {
-    fetch(`https://your-backend-api/admin/users/${userId}/apps`, {
+    fetch(`http://localhost:8081/admin/users/${userId}/apps/`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
