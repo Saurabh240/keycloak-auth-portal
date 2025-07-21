@@ -25,21 +25,19 @@ services:
     depends_on:
       - keycloak-db
 
-#  react-ui:
-#    image: saurabh896/keycloak-frontend:latest
-#    container_name: keycloak-frontend
-#    ports:
-#      - "${REACT_PORT}:80"
-#    environment:
-#      REACT_APP_KEYCLOAK_URL: http://keycloak:8080
-#    depends_on:
-#      - keycloak
+  #  react-ui:
+  #    image: saurabh896/keycloak-frontend:latest
+  #    container_name: keycloak-frontend
+  #    ports:
+  #      - "${REACT_PORT}:80"
+  #    environment:
+  #      REACT_APP_KEYCLOAK_URL: http://keycloak:8080
+  #    depends_on:
+  #      - keycloak
 
   spring-api:
     image: saurabh896/keycloak-backend:latest
     container_name: keycloak-backend
-    build:
-      context: ./spring-api
     ports:
       - "${SPRING_PORT}:8081"
     environment:
