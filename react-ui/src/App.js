@@ -1,7 +1,9 @@
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState } from 'react'
 import keycloak from './keycloak'
 import { jwtDecode } from 'jwt-decode'
 import AppListingPage from './pages/AppListingPage'
+import AdminUserManagementPage from './pages/AdminUserManagementPage'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -53,34 +55,39 @@ function App() {
   }
   return (
     <div>
-      <h1>App List Page</h1>
-      <p>User ID from token: {userId}</p>
-      <AppListingPage />
-      {/* Example: call API to fetch apps */}
-      {/* <FetchAppsButton token={token} userId={userId} /> */}
+      <BrowserRouter>
+        <Routes>
+          {/* <h1>App List Page</h1>
+      <p>User ID from token: {userId}</p> */}
+          <Route path="/" element={<AppListingPage />} />
+          <Route path="/admin/users" element={<AdminUserManagementPage />} />
+          {/* Example: call API to fetch apps */}
+          {/* <FetchAppsButton token={token} userId={userId} /> */}
+        </Routes>
+      </BrowserRouter>
     </div>
   );
 }
 
-function FetchAppsButton({ token, userId }) {
-  console.log(' in FetchAppsButton');
-  const fetchApps = () => {
-    fetch(`http://localhost:8081/admin/users/${userId}/apps/`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-      .then(res => {
-        console.log('in FetchAppsButton');
-        return res.json();
-      })
-      .then(data => console.log('Apps:', data))
-      .catch(err => console.error('Error fetching apps', err));
-  };
+// function FetchAppsButton({ token, userId }) {
+//   console.log(' in FetchAppsButton');
+//   const fetchApps = () => {
+//     fetch(`http://localhost:8081/admin/users/${userId}/apps/`, {
+//       headers: {
+//         Authorization: `Bearer ${token}`
+//       }
+//     })
+//       .then(res => {
+//         console.log('in FetchAppsButton');
+//         return res.json();
+//       })
+//       .then(data => console.log('Apps:', data))
+//       .catch(err => console.error('Error fetching apps', err));
+//   };
 
-  return (
-    <button onClick={fetchApps}>Fetch Apps for User</button>
-  );
-}
+//   return (
+//     <button onClick={fetchApps}>Fetch Apps for User</button>
+//   );
+// }
 
 export default App;

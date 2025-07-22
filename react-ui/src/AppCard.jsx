@@ -1,31 +1,37 @@
 
-export const AppCard = ({ index, app }) => {
+import { useNavigate } from 'react-router-dom';
+
+const AppCard = ({ index, app }) => {
+    const navigate = useNavigate();
+
+    const handleManageUsers = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        navigate(`/admin/users`);
+    };
     return (
         <a
             href={app.url}
-            className="border border-black p-4 rounded-lg hover:bg-gray-100 transition"
+            className="group relative bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 overflow-hidden"
         >
-            <div className="flex items-center gap-2 mb-2">
+            <div className="p-6">
                 <h3 className="text-xl font-bold text-slate-800 group-hover:text-blue-600 transition-colors duration-200 leading-tight mb-4">
                     {app.name}
                 </h3>
+                <p className="text-gray-600 leading-relaxed mb-6">
+                    {app.description}
+                </p>
                 {app.roles?.includes('admin') && (
                     <button
-                        onClick={(e) => {
-                            e.preventDefault(); // Prevent navigation
-                            e.stopPropagation();
-                            // Handle edit action here
-                            console.log('Edit app:', app.name);
-                        }}
-                        className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition flex-shrink-0"
+                        onClick={handleManageUsers}
+                        className="w-full bg-gradient-to-r from-blue-600 to-slate-700 hover:from-blue-700 hover:to-slate-800 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
                     >
                         Manage users
                     </button>
                 )}
             </div>
-            <p className="text-gray-600 leading-relaxed mb-6">
-                {app.description}
-            </p>
         </a>
     )
 }
+
+export default AppCard;
