@@ -116,3 +116,18 @@ function AdminUserManagementPage() {
 }
 
 export default AdminUserManagementPage
+
+// import { useParams } from 'react-router-dom';
+
+// const AdminUserManagementPage = () => {
+//     const { clientId } = useParams();
+
+//     return (
+//         <div>
+//             <h1>Managing Users for App ID: {clientId}</h1>
+//             {/* Render user list, actions etc */}
+//         </div>
+//     );
+// };
+
+// export default AdminUserManagementPage;

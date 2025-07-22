@@ -13,11 +13,12 @@ function AppListingPage() {
         try {
             const data = await getApps();
             console.log('API Response:', data);
-            setApps(data);
-            setLoading(false)
+            setApps(data.apps);
         } catch (err) {
             setError('Failed to fetch apps')
             setLoading(false);
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -91,6 +92,7 @@ function AppListingPage() {
                             </p>
                         </div>
                     )}
+
                 </div>
             </div>
         </div>

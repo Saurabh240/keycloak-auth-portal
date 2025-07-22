@@ -9,8 +9,6 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [token, setToken] = useState(null)
   const [userId, setUserId] = useState(null)
-  const [hasAdminRole, setHasAdminRole] = useState(false)
-  const [showAdminPage, setShowAdminPage] = useState(false)
 
   useEffect(() => {
     keycloak
@@ -20,30 +18,34 @@ function App() {
         pkceMethod: 'S256',
       })
       .then((authenticated) => {
-        setIsAuthenticated(authenticated)
         if (authenticated) {
-          setToken(keycloak.token)
           const decoded = jwtDecode(keycloak.token)
-          console.log('Decoded token', decoded)
-          setUserId(decoded.sub)
-          localStorage.setItem('token', keycloak.token)
-          localStorage.setItem('sub', decoded.sub)
+          const uid = decoded.sub
+
+          // ✅ Store token & userId with correct keys
+          setIsAuthenticated(true)
+          setToken(keycloak.token)
+          setUserId(uid)
+
+          localStorage.setItem('keycloak_token', keycloak.token)
+          localStorage.setItem('userId', uid)
           localStorage.setItem('user', JSON.stringify(decoded))
-          setHasAdminRole(keycloak.hasRealmRole('admin'))
         }
       })
       .catch((error) => {
         console.error('Keycloak initialization failed:', error)
       })
 
+    // Token refresh setup
     keycloak.onTokenExpired = () => {
       keycloak.updateToken(60).then((refreshed) => {
         if (refreshed) {
           setToken(keycloak.token)
-          localStorage.setItem('token', keycloak.token)
+          localStorage.setItem('keycloak_token', keycloak.token)
         }
       })
     }
+
 
     return () => {
       keycloak.onTokenExpired = null
@@ -60,7 +62,7 @@ function App() {
           {/* <h1>App List Page</h1>
       <p>User ID from token: {userId}</p> */}
           <Route path="/" element={<AppListingPage />} />
-          <Route path="/admin/users" element={<AdminUserManagementPage />} />
+          <Route path="/admin/users/:clientId" element={<AdminUserManagementPage />} />
           {/* Example: call API to fetch apps */}
           {/* <FetchAppsButton token={token} userId={userId} /> */}
         </Routes>
