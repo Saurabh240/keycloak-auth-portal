@@ -1,8 +1,6 @@
 package com.user.management.controller;
 
-import com.user.management.model.AppMetadata;
 import com.user.management.model.UserDto;
-import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
@@ -26,10 +24,6 @@ public class AdminUserController {
 
     private final Keycloak keycloak;
     private final String realm;
-    private static final Map<String, AppMetadata> APP_METADATA = Map.of(
-            "client1-app1", new AppMetadata("Frontend Application", "https://custom-app.example.com"),
-            "client1-app2", new AppMetadata("Frappe Application", "https://frappe.example.com")
-    );
 
     public AdminUserController(
             @Value("${keycloak.auth-server-url}") String serverUrl,
@@ -48,11 +42,36 @@ public class AdminUserController {
     }
 
     @GetMapping
-    public ResponseEntity<List<UserRepresentation>> getAllUsers() {
+    public ResponseEntity<List<Map<String, Object>>> getAllUsers() {
         RealmResource realmResource = keycloak.realm(realm);
         UsersResource usersResource = realmResource.users();
         List<UserRepresentation> users = usersResource.list();
-        return ResponseEntity.ok(users);
+        List<ClientRepresentation> clients = realmResource.clients().findAll();
+
+        List<Map<String, Object>> enrichedUsers = new ArrayList<>();
+
+        for (UserRepresentation user : users) {
+            Map<String, Object> userMap = new HashMap<>();
+            userMap.put("id", user.getId());
+            userMap.put("username", user.getUsername());
+            userMap.put("email", user.getEmail());
+            userMap.put("enabled", user.isEnabled());
+
+            Map<String, List<String>> clientRolesMap = new HashMap<>();
+            for (ClientRepresentation client : clients) {
+                List<RoleRepresentation> clientRoles = realmResource.users().get(user.getId())
+                        .roles().clientLevel(client.getId()).listAll();
+                if (!clientRoles.isEmpty()) {
+                    List<String> roleNames = clientRoles.stream().map(RoleRepresentation::getName).toList();
+                    clientRolesMap.put(client.getClientId(), roleNames);
+                }
+            }
+
+            userMap.put("clientRoles", clientRolesMap);
+            enrichedUsers.add(userMap);
+        }
+
+        return ResponseEntity.ok(enrichedUsers);
     }
 
     @PostMapping
@@ -72,16 +91,83 @@ public class AdminUserController {
 
         Response response = keycloak.realm(realm).users().create(user);
 
-        if (response.getStatus() == 201 && userDto.getRoles() != null && !userDto.getRoles().isEmpty()) {
+        if (response.getStatus() == 201 && userDto.getClientRoles() != null && !userDto.getClientRoles().isEmpty()) {
             String userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
-            RoleMappingResource roleMapping = keycloak.realm(realm).users().get(userId).roles();
-            for (String roleName : userDto.getRoles()) {
-                RoleRepresentation role = keycloak.realm(realm).roles().get(roleName).toRepresentation();
-                roleMapping.realmLevel().add(Collections.singletonList(role));
+            UserResource userResource = keycloak.realm(realm).users().get(userId);
+            RoleMappingResource roleMapping = userResource.roles();
+
+            for (Map.Entry<String, List<String>> entry : userDto.getClientRoles().entrySet()) {
+                String clientId = entry.getKey();
+                List<String> roles = entry.getValue();
+
+                List<ClientRepresentation> clients = keycloak.realm(realm).clients().findByClientId(clientId);
+                if (!clients.isEmpty()) {
+                    String clientUuid = clients.get(0).getId();
+
+                    for (String roleName : roles) {
+                        RoleRepresentation role = keycloak.realm(realm).clients().get(clientUuid)
+                                .roles().get(roleName).toRepresentation();
+                        roleMapping.clientLevel(clientUuid).add(Collections.singletonList(role));
+                    }
+                }
             }
         }
 
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Void> updateUser(@PathVariable String id, @RequestBody UserDto userDto) {
+        RealmResource realmResource = keycloak.realm(realm);
+        UserResource userResource = realmResource.users().get(id);
+        UserRepresentation user = userResource.toRepresentation();
+
+        user.setUsername(userDto.getUsername());
+        user.setEmail(userDto.getEmail());
+        user.setEnabled(true);
+        userResource.update(user);
+
+        if (userDto.getPassword() != null) {
+            CredentialRepresentation cred = new CredentialRepresentation();
+            cred.setType(CredentialRepresentation.PASSWORD);
+            cred.setValue(userDto.getPassword());
+            cred.setTemporary(false);
+            userResource.resetPassword(cred);
+        }
+
+        if (userDto.getClientRoles() != null) {
+            RoleMappingResource roleMapping = userResource.roles();
+
+            for (Map.Entry<String, List<String>> entry : userDto.getClientRoles().entrySet()) {
+                String clientAlias = entry.getKey();
+                List<String> roles = entry.getValue();
+
+                List<ClientRepresentation> clientList = realmResource.clients().findByClientId(clientAlias);
+                if (!clientList.isEmpty()) {
+                    String clientUuid = clientList.get(0).getId();
+
+                    List<RoleRepresentation> allAvailableRoles = realmResource.clients().get(clientUuid).roles().list();
+
+                    // Validate requested roles exist before calling add()
+                    List<RoleRepresentation> roleRepsToAdd = allAvailableRoles.stream()
+                            .filter(role -> roles.contains(role.getName()))
+                            .toList();
+
+                    // Clear existing roles safely
+                    List<RoleRepresentation> existingRoles = roleMapping.clientLevel(clientUuid).listAll();
+                    if (!existingRoles.isEmpty()) {
+                        roleMapping.clientLevel(clientUuid).remove(existingRoles);
+                    }
+
+                    // Add new roles if valid
+                    if (!roleRepsToAdd.isEmpty()) {
+                        roleMapping.clientLevel(clientUuid).add(roleRepsToAdd);
+                    }
+                }
+            }
+        }
+
+        return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{id}")
@@ -90,119 +176,53 @@ public class AdminUserController {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<Void> updateUser(@PathVariable String id, @RequestBody UserDto userDto) {
-        UserResource userResource = keycloak.realm(realm).users().get(id);
-        UserRepresentation user = userResource.toRepresentation();
-        user.setEmail(userDto.getEmail());
-        user.setUsername(userDto.getUsername());
-        userResource.update(user);
-
-        if (userDto.getRoles() != null) {
-            RoleMappingResource roleMapping = userResource.roles();
-            roleMapping.realmLevel().remove(roleMapping.realmLevel().listAll());
-            for (String roleName : userDto.getRoles()) {
-                RoleRepresentation role = keycloak.realm(realm).roles().get(roleName).toRepresentation();
-                roleMapping.realmLevel().add(Collections.singletonList(role));
-            }
-        }
-
-        return ResponseEntity.ok().build();
-    }
-
-    @GetMapping("/{username}/details")
-    public ResponseEntity<?> getUserWithRolesByUsername(@PathVariable String username) {
-        try {
-            RealmResource realmResource = keycloak.realm(realm);
-            List<UserRepresentation> foundUsers = realmResource.users().search(username);
-            if (foundUsers.isEmpty()) return ResponseEntity.notFound().build();
-
-            UserRepresentation user = foundUsers.get(0);
-            String userId = user.getId();
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("user", user);
-
-            // Realm roles
-            List<RoleRepresentation> realmRoles = realmResource.users().get(userId)
-                    .roles()
-                    .realmLevel()
-                    .listAll();
-            result.put("realmRoles", realmRoles.stream().map(RoleRepresentation::getName).toList());
-
-            // Client roles
-            Map<String, List<String>> clientRolesMap = new HashMap<>();
-
-            for (String clientAlias : APP_METADATA.keySet()) {
-                List<ClientRepresentation> clients = realmResource.clients().findByClientId(clientAlias);
-                if (!clients.isEmpty()) {
-                    String clientUuid = clients.get(0).getId();
-
-                    List<RoleRepresentation> clientRoles = realmResource.users().get(userId)
-                            .roles()
-                            .clientLevel(clientUuid)
-                            .listAll();
-
-                    if (!clientRoles.isEmpty()) {
-                        clientRolesMap.put(clientAlias, clientRoles.stream().map(RoleRepresentation::getName).toList());
-                    }
-                }
-            }
-
-            result.put("clientRoles", clientRolesMap);
-
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body("Error: " + e.getMessage());
-        }
-    }
-
     @GetMapping("/{id}/apps")
     public ResponseEntity<Map<String, Object>> getUserApps(@PathVariable String id) {
         RealmResource realmResource = keycloak.realm(realm);
         UserRepresentation user = realmResource.users().get(id).toRepresentation();
 
-        // Collect realm roles
+        // Collect realm-level roles
         List<String> realmRoles = realmResource.users().get(id).roles().realmLevel().listAll().stream()
                 .map(RoleRepresentation::getName)
                 .toList();
 
-        // Collect client roles for configured apps
         Map<String, Object> result = new HashMap<>();
         result.put("user", user);
         result.put("realmRoles", realmRoles);
 
         List<Map<String, Object>> apps = new ArrayList<>();
 
-        for (String clientAlias : APP_METADATA.keySet()) {
-            List<ClientRepresentation> clients = realmResource.clients().findByClientId(clientAlias);
-            if (!clients.isEmpty()) {
-                String clientUuid = clients.get(0).getId();
+        // Dynamically get all clients (apps) in the realm
+        List<ClientRepresentation> allClients = realmResource.clients().findAll();
 
-                List<RoleRepresentation> clientRoles = realmResource.users().get(id)
-                        .roles()
-                        .clientLevel(clientUuid)
-                        .listAll();
+        for (ClientRepresentation client : allClients) {
+            String clientId = client.getClientId();
+            String clientUuid = client.getId();
+            if (!List.of("account", "realm-management", "broker").contains(clientId)) {
 
-                List<String> roleNames = clientRoles.stream().map(RoleRepresentation::getName).toList();
+            List<RoleRepresentation> clientRoles = realmResource.users().get(id)
+                    .roles()
+                    .clientLevel(clientUuid)
+                    .listAll();
 
-                if (!roleNames.isEmpty()) {
-                    Map<String, Object> app = new HashMap<>();
-                    AppMetadata meta = APP_METADATA.get(clientAlias);
+            if (!clientRoles.isEmpty()) {
+                List<String> roleNames = clientRoles.stream()
+                        .map(RoleRepresentation::getName)
+                        .toList();
 
-                    app.put("clientId", clientAlias);
-                    app.put("name", meta.name());
-                    app.put("url", meta.url());
-                    app.put("roles", roleNames);
+                Map<String, Object> app = new HashMap<>();
+                app.put("clientId", clientId);
+                app.put("name", client.getName() != null ? client.getName() : clientId);  // Use 'name' if available
+                app.put("description", client.getDescription());
+                app.put("baseUrl", client.getBaseUrl());
+                app.put("roles", roleNames);
 
-                    apps.add(app);
-                }
+                apps.add(app);
+            }
             }
         }
 
         result.put("apps", apps);
         return ResponseEntity.ok(result);
     }
-
 }
