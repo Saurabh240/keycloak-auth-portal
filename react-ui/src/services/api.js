@@ -28,7 +28,7 @@ export const getApps = async () => {
     console.log('User ID:', userId);
     console.log('Token:', token);
 
-    const response = await api.get(`admin/users/${userId}/apps`, {
+    const response = await api.get(`/admin/users/${userId}/apps`, {
         headers: {
             Authorization: `Bearer ${token}`,
         },
