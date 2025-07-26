@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getApps } from '../services/api'
 import AppCard from '../AppCard'
 import { AlertCircle, Loader2, RefreshCw } from 'lucide-react'
+import { data } from 'react-router-dom'
 
 
 function AppListingPage() {
@@ -25,6 +26,18 @@ function AppListingPage() {
     useEffect(() => {
         fetchApps()
     }, [])
+
+
+    const handleSSORedirect = () => {
+        const redirectUri = encodeURIComponent(data.apps.baseUrl || window.location.origin)
+        const realm = 'euranix' // or dynamically from config
+        const clientId = data.apps.clientId
+    
+        const loginUrl = `http://localhost:8080/realms/${realm}/protocol/openid-connect/auth?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}`
+    
+        window.location.href = loginUrl
+      }
+
 
     // Loading State
     if (loading) {
@@ -78,9 +91,21 @@ function AppListingPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {Array.isArray(apps) && apps.length > 0 ? (
-                        apps.map((app, index) => (
-                            <AppCard key={app.id || index} app={app} />
-                        ))
+                        apps.map((app, index) => {
+                            const realm = 'euranix' // Replace with dynamic value if needed
+                            const redirectUri = encodeURIComponent(window.location.origin)
+                            const loginUrl = `http://localhost:8080/realms/${realm}/protocol/openid-connect/auth?client_id=${EnvironmentModuleGraph.}&response_type=code&redirect_uri=${redirectUri}`
+                        
+                            return (
+                                <a
+                                    key={app.id || index}
+                                    href={loginUrl}
+                                    className="block"
+                                >
+                                    <AppCard app={app} />
+                                </a>
+                            )
+                        })
                     ) : (
                         <div className="col-span-full text-center py-16">
                             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">

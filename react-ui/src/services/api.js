@@ -40,11 +40,8 @@ export const getApps = async () => {
 };
 
 
-// ✅ Admin: Get all users
 export const getUsers = async () => {
     console.log(token, 'token')
-    // const response = await api.get('/admin/users')
-    // return response.data
     const response = await api.get('/admin/users', {
         headers: {
             Authorization: `Bearer ${token}`,
@@ -54,7 +51,6 @@ export const getUsers = async () => {
     return response.data;
 }
 
-// ✅ Admin: Create user
 export const createUser = async (userData) => {
     const response = await api.post('/admin/users', userData, {
       headers: {
@@ -76,7 +72,7 @@ export const updateUser = async (userId, userData) => {
   };
   
   // ✅ Admin: Delete user
-  export const deleteUser = async (userId) => {
+export const deleteUser = async (userId) => {
     return api.delete(`/admin/users/${userId}`, {
       headers: {
         Authorization: `Bearer ${token}`,

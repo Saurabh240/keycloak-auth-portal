@@ -68,10 +68,24 @@ const AdminPage = ({ keycloak, token }) => {
     }).catch(() => alert('Error updating user'));
   };
 
-  const filteredUsers = users.filter(u =>
-    u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredAndSortedUsers = (users || [])
+  .filter(user =>
+    !!user && (
+      (user.firstName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (user.lastName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (user.username?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+    )
+  )
+  .sort((a, b) => {
+    const aValue = a?.[sortField]?.toString().toLowerCase() || ''
+    const bValue = b?.[sortField]?.toString().toLowerCase() || ''
+    return sortDirection === 'asc'
+      ? aValue.localeCompare(bValue)
+      : bValue.localeCompare(aValue)
+  })
+
+
 
   const paginatedUsers = filteredUsers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const totalPages = Math.ceil(filteredUsers.length / PAGE_SIZE);
