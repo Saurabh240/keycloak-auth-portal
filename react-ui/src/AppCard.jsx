@@ -7,7 +7,7 @@ const AppCard = ({ index, app }) => {
     const handleManageUsers = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        navigate(`/admin/users/${app.id}`);
+        navigate(`/admin/users`);
     };
     return (
         <a

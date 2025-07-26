@@ -1,3 +1,7 @@
 /spring-api/target/**
 /.idea/**
 /react-ui/public/robots.txt
+/react-ui/node_modules/**
+react-ui/node_modules/
+react-ui/build/
+react-ui/.env
